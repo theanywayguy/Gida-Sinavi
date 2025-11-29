@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hijyen Bilgi Sınavı</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom scrollbar for a nicer look */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1f2937; /* Dark gray */
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4b5563; /* Medium gray */
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280; /* Light gray */
+        }
+        /* Using Inter font for a modern look */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Base class for option buttons */
+        .option-button {
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        /* Animation for feedback area */
+        @keyframes fadeInScale {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .feedback-area-visible {
+            animation: fadeInScale 0.3s ease-out forwards;
+        }
+    </style>
+    <script>
+        // Tailwind configuration for custom colors
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary': '#10b981', // Emerald green
+                        'secondary': '#374151', // Dark Gray
+                        'danger': '#ef4444', // Red
+                        'success': '#22c55e', // Green
+                        'info': '#3b82f6', // Blue (for selection)
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex items-center justify-center p-4">
+
+    <div id="app-container" class="w-full max-w-xl bg-gray-800 shadow-2xl rounded-xl p-6 md:p-8 space-y-6">
+        
+        <header class="text-center mb-6">
+            <h1 class="text-3xl font-extrabold text-primary">Hijyen Sertifikası Bilgi Sınavı</h1>
+            <p class="text-gray-400 mt-1">Bilgilerinizi test edin ve yanlış cevapları tekrar çözün.</p>
+        </header>
+
+        <!-- Question Area -->
+        <div id="quiz-area" class="space-y-6">
+            
+            <!-- Question Card -->
+            <div id="question-card" class="bg-gray-700 p-4 rounded-lg shadow-inner border border-gray-600">
+                <p id="question-number" class="text-sm font-medium text-primary mb-2"></p>
+                <p id="question-text" class="text-xl font-semibold"></p>
+            </div>
+
+            <!-- Options Area -->
+            <div id="options-container" class="grid grid-cols-1 gap-3">
+                <!-- Option buttons will be injected here -->
+            </div>
+
+            <!-- Feedback & Explanation Area -->
+            <div id="feedback-area" class="hidden p-4 rounded-lg mt-4 transition duration-300">
+                <p id="feedback-message" class="font-bold mb-2"></p>
+                <div id="explanation-container" class="text-sm italic text-gray-300"></div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div id="action-buttons" class="flex flex-col space-y-3 pt-4">
+                <button id="submit-button" onclick="checkAnswer()" class="w-full bg-primary hover:bg-emerald-600 text-white font-bold py-3 rounded-lg shadow-lg transition duration-200 uppercase">Gönder (Cevapla)</button>
+                <div class="grid grid-cols-2 gap-3">
+                    <button id="reshuffle-button" onclick="reshuffleAnswers()" class="bg-secondary hover:bg-gray-600 text-white text-sm font-medium py-2 rounded-lg transition duration-200">Cevapları Karıştır</button>
+                    <button id="next-button" onclick="nextQuestion()" class="bg-info hover:bg-blue-600 text-white text-sm font-medium py-2 rounded-lg transition duration-200 hidden">Sonraki Soru</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Area -->
+        <div id="results-area" class="hidden text-center space-y-6">
+            <h2 class="text-4xl font-extrabold text-primary">Sınav Sonuçları</h2>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-gray-700 p-4 rounded-lg shadow-lg">
+                    <p class="text-gray-400 text-sm">Doğru Cevaplar</p>
+                    <p id="correct-count" class="text-4xl font-bold text-success mt-1"></p>
+                </div>
+                <div class="bg-gray-700 p-4 rounded-lg shadow-lg">
+                    <p class="text-gray-400 text-sm">Başarı Yüzdesi</p>
+                    <p id="score-percentage" class="text-4xl font-bold text-info mt-1"></p>
+                </div>
+            </div>
+            <p id="results-message" class="text-lg font-medium"></p>
+            
+            <!-- This button is managed to show only when there are wrong answers -->
+            <button id="retake-wrong-button" onclick="retakeWrongAnswers()" class="w-full bg-danger hover:bg-red-600 text-white font-bold py-3 rounded-lg shadow-lg transition duration-200 uppercase mt-4 hidden">Yanlışları Tekrar Çöz</button>
+            <button onclick="startQuiz()" class="w-full bg-gray-600 hover:bg-gray-500 text-white font-bold py-3 rounded-lg shadow-lg transition duration-200 uppercase mt-2">Sınava Yeniden Başla</button>
+        </div>
+        
+        <!-- Custom Modal for Alerts (replacing window.alert) -->
+        <div id="custom-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+            <div class="bg-gray-700 p-6 rounded-lg shadow-2xl max-w-sm w-full text-center">
+                <p id="modal-message" class="text-lg font-semibold text-white mb-4"></p>
+                <button onclick="closeModal()" class="bg-primary hover:bg-emerald-600 text-white font-bold py-2 px-4 rounded-lg transition duration-200">Tamam</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Use a consistent structure for all questions
+        const ALL_QUESTIONS_RAW = [
+            { q: "Hijyen nedir?", options: ["Sadece elleri yıkamak", "Hastalık yapıcı mikroorganizmalardan korunma yöntemi", "Yemek pişirme yöntemi", "Sadece gıda hazırlama aşaması"], answerIndex: 1, explanation: "Hijyen, hastalık yapıcı mikroorganizmalardan korunma ve sağlıklı yaşamı sürdürme yöntemlerinin tümüdür." },
+            { q: "Mikroorganizmalar nedir?", options: ["Gözle görülebilen canlılar", "Gözle görülemeyen, mikroskopla görülebilen canlılar", "Bitkiler", "Hayvanlar"], answerIndex: 1, explanation: "Mikroorganizmalar, çıplak gözle görülemeyen ve mikroskop kullanarak incelenebilen canlılardır." },
+            { q: "Gıda zehirlenmesi nedir?", options: ["Yanlış pişirilen yemek", "Gıda yoluyla alınan zararlı mikroorganizmalar veya toksinlerin neden olduğu hastalık", "Yetersiz gıda tüketimi", "Aşırı tuz kullanımı"], answerIndex: 1, explanation: "Gıda zehirlenmesi, kontamine olmuş gıdalardan alınan mikroorganizmalar veya toksinler nedeniyle ortaya çıkan sağlık sorunudur." },
+            { q: "Kişisel hijyenin önemi nedir?", options: ["Sadece güzel görünmek için", "Hastalıklardan korunmak ve sağlığı korumak için", "Daha iyi kokmak için", "Sadece iş yerinde temiz olmak için"], answerIndex: 1, explanation: "Kişisel hijyen, bireylerin hastalıklardan korunmaları ve genel sağlıklarını korumaları için gereklidir." },
+            { q: "El yıkama süresi ne kadar olmalıdır?", options: ["5 saniye", "10 saniye", "20 saniye", "1 dakika"], answerIndex: 2, explanation: "Etkili bir el yıkama işlemi, ellerin tüm yüzeylerinin iyice temizlenebilmesi için en az 20 saniye sürmelidir." },
+            { q: "Çapraz bulaşma nedir?", options: ["Farklı türde gıdaların aynı anda pişirilmesi", "Temiz ve kirli gıdaların temas etmesi sonucu mikroorganizmaların bulaşması", "Gıdaların aşırı ısıtılması", "Gıdaların soğukta saklanması"], answerIndex: 1, explanation: "Çapraz bulaşma, temiz gıdaların kirli gıdalarla temas ederek mikroorganizmaların bulaşması anlamına gelir." },
+            { q: "Gıda hijyeninde kritik kontrol noktası nedir?", options: ["Yemek pişirme süresi", "Gıdanın saklanma sıcaklığı", "Gıdanın paketlenmesi", "Yemek sunumu"], answerIndex: 1, explanation: "Gıda hijyeninde kritik kontrol noktaları, gıdanın mikroorganizmaların çoğalmasını engellemek için belirli sıcaklık aralıklarında saklanmasını içerir." },
+            { q: "Hijyen eğitimi neden önemlidir?", options: ["Daha fazla müşteri çekmek için", "Çalışanların bilinçlenmesi ve iş sağlığı güvenliğinin artırılması için", "İş yerini temiz tutmak için", "Yasal zorunluluk olmadığı için"], answerIndex: 1, explanation: "Hijyen eğitimi, çalışanların bilinçlenmesi ve iş sağlığı güvenliğinin artırılması amacıyla verilmektedir." },
+            { q: "Hangi durumda eller yeniden yıkanmalıdır?", options: ["Yemek yedikten sonra", "Yemek hazırlamaya başlamadan önce", "Tuvalet kullanımından sonra", "Hepsi"], answerIndex: 3, explanation: "Eller, yemek yemeden önce ve sonra, yemek hazırlamaya başlamadan önce ve tuvalet kullanımından sonra mutlaka yıkanmalıdır." },
+            { q: "Mikroorganizmalar en çok nerede bulunur?", options: ["Sıcak ve kuru yerlerde", "Soğuk ve kuru yerlerde", "Sıcak ve nemli yerlerde", "Soğuk ve nemli yerlerde"], answerIndex: 2, explanation: "Mikroorganizmalar, sıcak ve nemli ortamlarda hızlı bir şekilde çoğalır ve yayılır." },
+            { q: "Gıda hijyeni neden önemlidir?", options: ["Gıdaların lezzetini artırmak için", "Gıda kaynaklı hastalıkları önlemek için", "Gıdaların renklerini korumak için", "Gıdaların maliyetini düşürmek için"], answerIndex: 1, explanation: "Gıda hijyeni, gıda kaynaklı hastalıkların önlenmesi için kritik bir öneme sahiptir." },
+            { q: "Kişisel hijyenin iş yerindeki etkisi nedir?", options: ["Çalışanların görünümünü iyileştirir", "Çalışanların moralini artırır", "Çalışanlar arasındaki hastalıkların yayılmasını önler", "Çalışanların daha iyi kokmasını sağlar"], answerIndex: 2, explanation: "Kişisel hijyen, iş yerinde hastalıkların yayılmasını önleyerek genel sağlık durumunu iyileştirir." },
+            { q: "Hangi hijyen kuralı doğru değildir?", options: ["Elleri sık sık yıkamak", "Çiğ ve pişmiş gıdaları ayrı tutmak", "Temizlik bezlerini her gün değiştirmek", "Çiğ gıdaları buzdolabı dışında saklamak"], answerIndex: 3, explanation: "Çiğ gıdaların buzdolabında saklanması gerekir, aksi halde bakteri üreme riski artar." },
+            { q: "İş yerinde hijyen eğitimi almayan çalışanlar ne tür risklerle karşı karşıya kalır?", options: ["İş güvenliği kurallarını ihlal etme riski", "Gıda zehirlenmesi riskinin artması", "İş kazaları riski", "Hepsi"], answerIndex: 3, explanation: "Hijyen eğitimi almayan çalışanlar, iş güvenliği kurallarını ihlal edebilir, gıda zehirlenmesi riskini artırabilir ve iş kazalarına neden olabilir." },
+            { q: "Hangi temizlik malzemesi mikroorganizmaları yok etmede en etkilidir?", options: ["Su", "Sabun", "Dezenfektan", "Havlu"], answerIndex: 2, explanation: "Dezenfektanlar, mikroorganizmaları etkili bir şekilde yok eder ve hijyen sağlar." },
+            { q: "Gıdaların saklanma sıcaklığı kaç derece olmalıdır?", options: ["0-5°C", "10-15°C", "20-25°C", "30-35°C"], answerIndex: 0, explanation: "Gıdaların bozulmaması ve mikroorganizmaların ürememesi için 0-5°C aralığında saklanması gerekmektedir." },
+            { q: "Hangi durumda maske kullanılmalıdır?", options: ["Yemek hazırlarken", "Temizlik yaparken", "Hasta biriyle temas ederken", "Hepsi"], answerIndex: 3, explanation: "Maske kullanımı, yemek hazırlarken, temizlik yaparken ve hasta biriyle temas ederken mikroorganizmaların yayılmasını önlemek için önemlidir." },
+            { q: "Gıda zehirlenmesinin belirtileri nelerdir?", options: ["Karın ağrısı ve ishal", "Baş ağrısı", "Ateş", "Hepsi"], answerIndex: 3, explanation: "Gıda zehirlenmesinin belirtileri arasında karın ağrısı, ishal, baş ağrısı ve ateş gibi semptomlar bulunur." },
+            { q: "Hangi hijyen uygulaması doğru değildir?", options: ["Çiğ ve pişmiş gıdaları aynı anda hazırlamak", "Elleri yemekten önce yıkamak", "Çiğ gıdaları buzdolabında saklamak", "Yemek hazırlamadan önce mutfağı temizlemek"], answerIndex: 0, explanation: "Çiğ ve pişmiş gıdaların aynı anda hazırlanması, çapraz bulaşmaya neden olarak hijyen sorunları yaratabilir." },
+            { q: "Hijyen sertifikası almak için gereken en önemli adım nedir?", options: ["Sadece başvurmak", "Hijyen eğitimi almak ve sınavı geçmek", "Ücret ödemek", "Referans göstermek"], answerIndex: 1, explanation: "Hijyen sertifikası almak için en önemli adım, hijyen eğitimi alarak sınavda başarılı olmaktır." },
+            { q: "Hangi durumda gıda kontaminasyonu riski artar?", options: ["Gıdaları doğru sıcaklıkta saklamak", "Çiğ ve pişmiş gıdaları aynı yerde saklamak", "Gıdaları temiz kaplarda saklamak", "Gıdaları uygun ambalajlarda saklamak"], answerIndex: 1, explanation: "Çiğ ve pişmiş gıdaların aynı yerde saklanması, çapraz bulaşma riskini artırır." },
+            { q: "Gıda hijyeninde doğru saklama koşulları nedir?", options: ["Gıdaları açıkta bırakmak", "Gıdaları buzdolabında saklamak", "Gıdaları odun dolapta saklamak", "Gıdaları plastik kaplarda saklamak"], answerIndex: 1, explanation: "Gıdaların bozulmaması ve mikroorganizmaların ürememesi için buzdolabında saklanması gerekmektedir." },
+            { q: "Hangi hijyen kuralı iş yerinde uygulanmalıdır?", options: ["Elleri yıkamadan yemek hazırlamak", "Temizlik malzemelerini ayrı yerlerde saklamak", "Çalışanların aynı kıyafetleri giymesi", "Temizlik yaparken eldiven kullanmak"], answerIndex: 3, explanation: "Temizlik yaparken eldiven kullanmak, kimyasallardan ve mikroorganizmalardan korunmayı sağlar." },
+            { q: "Hijyen eğitimi alan çalışanların faydası nedir?", options: ["İş verimliliğinin artması", "Daha temiz iş ortamı", "Daha az iş kazası", "Hepsi"], answerIndex: 3, explanation: "Hijyen eğitimi alan çalışanlar, iş verimliliğini artırır, iş ortamının temizliğini sağlar ve iş kazalarını azaltır." },
+            { q: "Mikroorganizma üremesini önlemek için ne yapılmalıdır?", options: ["Gıdaları oda sıcaklığında bırakmak", "Gıdaları uygun sıcaklıkta saklamak", "Gıdaları açıkta bırakmak", "Gıdaları güneşte kurutmak"], answerIndex: 1, explanation: "Mikroorganizma üremesini önlemek için gıdaların uygun sıcaklıkta saklanması gerekmektedir." },
+            { q: "Hijyen sınavı soruları neyi kapsar?", options: ["Temel hijyen bilgisi", "Gıda hijyeni", "Kişisel hijyen", "Hepsi"], answerIndex: 3, explanation: "Hijyen sınavı soruları, temel hijyen bilgisi, gıda hijyeni ve kişisel hijyen konularını kapsar." },
+            { q: "Hangi durumda hijyen eğitimi tekrar edilmelidir?", options: ["Her yıl", "Her üç yılda bir", "Beş yılda bir", "Yedi yılda bir"], answerIndex: 1, explanation: "Hijyen eğitimi, bilgilerin güncellenmesi ve tazelenmesi amacıyla her üç yılda bir tekrar edilmelidir." },
+            { q: "Hijyen belgesi hangi sektörler için gereklidir?", options: ["Gıda sektörü", "Sağlık sektörü", "Temizlik sektörü", "Hepsi"], answerIndex: 3, explanation: "Hijyen belgesi, gıda, sağlık ve temizlik gibi birçok sektörde gereklidir." },
+            { q: "Hangi hijyen uygulaması yanlıştır?", options: ["Gıdaları uygun kaplarda saklamak", "Elleri yıkamadan yemek hazırlamak", "Temizlik sırasında eldiven kullanmak", "Çiğ ve pişmiş gıdaları ayrı yerlerde saklamak"], answerIndex: 1, explanation: "Elleri yıkamadan yemek hazırlamak, hijyen kurallarına aykırıdır ve kontaminasyon riskini artırır." },
+            { q: "Hijyen belgesi almak için hangi sınavı geçmek gereklidir?", options: ["Sadece uygulama sınavı", "Teorik sınav", "Hem teorik hem uygulama sınavı", "Sadece mülakat"], answerIndex: 2, explanation: "Hijyen belgesi almak için hem teorik hem de uygulama sınavlarını geçmek gereklidir." }
+        ];
+
+        let ALL_QUESTIONS_MAPPED; // Stores questions with their immutable original index
+        let currentQuestions = []; // The list of questions currently being asked (subset or full)
+        let currentIndex = 0;
+        // Stores results: { originalQIndex: number, chosenIndex: number, correctIndex: number, isCorrect: boolean }
+        let userAnswers = []; 
+        let isAnswered = false;
+        
+        // Element selectors
+        const quizArea = document.getElementById('quiz-area');
+        const resultsArea = document.getElementById('results-area');
+        const questionTextEl = document.getElementById('question-text');
+        const questionNumberEl = document.getElementById('question-number');
+        const optionsContainer = document.getElementById('options-container');
+        const feedbackArea = document.getElementById('feedback-area');
+        const feedbackMessageEl = document.getElementById('feedback-message');
+        const explanationContainer = document.getElementById('explanation-container');
+        const submitButton = document.getElementById('submit-button');
+        const nextButton = document.getElementById('next-button');
+        const reshuffleButton = document.getElementById('reshuffle-button');
+        const retakeWrongButton = document.getElementById('retake-wrong-button');
+        const modal = document.getElementById('custom-modal');
+        const modalMessage = document.getElementById('modal-message');
+        
+        // Custom Alert/Modal function
+        function showModal(message) {
+            modalMessage.textContent = message;
+            modal.classList.remove('hidden');
+        }
+
+        function closeModal() {
+            modal.classList.add('hidden');
+        }
+
+        // Utility: Shuffles an array in place (Fisher-Yates)
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        // Utility: Returns the letter (a, b, c, d) for an index (0, 1, 2, 3)
+        function getOptionLetter(index) {
+            return String.fromCharCode(97 + index);
+        }
+
+        // Main function to start the quiz
+        function startQuiz(retakeOnly = false) {
+            
+            if (retakeOnly) {
+                // 1. Get the indices of questions that were previously answered incorrectly
+                const wrongOriginalIndices = userAnswers.filter(a => !a.isCorrect).map(a => a.originalQIndex);
+                
+                if (wrongOriginalIndices.length === 0) {
+                    showModal('Tebrikler! Önceki denemede tüm soruları doğru cevapladınız.');
+                    // If no wrong answers, go back to results view
+                    showResults(); 
+                    return;
+                }
+                
+                // 2. Filter the master list to create the retake quiz set
+                currentQuestions = ALL_QUESTIONS_MAPPED.filter(q => wrongOriginalIndices.includes(q.originalIndex));
+                
+                // 3. Keep only the correct answers recorded, clear incorrect ones for the new session
+                userAnswers = userAnswers.filter(a => a.isCorrect); 
+                
+            } else {
+                // Normal start (all questions)
+                currentQuestions = [...ALL_QUESTIONS_MAPPED];
+                // Shuffle the entire question list at the start for variety
+                shuffleArray(currentQuestions); 
+                userAnswers = [];
+            }
+
+            currentIndex = 0;
+            isAnswered = false;
+
+            quizArea.classList.remove('hidden');
+            resultsArea.classList.add('hidden');
+            retakeWrongButton.classList.add('hidden'); // Ensure retake button is hidden during the quiz
+            
+            renderQuestion();
+        }
+
+        // Renders the current question and shuffles its options
+        function renderQuestion() {
+            if (currentIndex >= currentQuestions.length) {
+                showResults();
+                return;
+            }
+
+            const currentQ = currentQuestions[currentIndex];
+
+            // 1. Reset UI state
+            optionsContainer.innerHTML = '';
+            feedbackArea.classList.add('hidden');
+            feedbackArea.classList.remove('feedback-area-visible');
+            nextButton.classList.add('hidden');
+            submitButton.classList.remove('hidden');
+            submitButton.disabled = false;
+            reshuffleButton.disabled = false;
+            isAnswered = false;
+            
+            // 2. Display question text and number
+            const totalQ = currentQuestions.length;
+            const currentNumber = currentIndex + 1;
+            questionNumberEl.textContent = `Soru ${currentNumber} / ${totalQ}`;
+            questionTextEl.textContent = currentQ.q;
+
+            // 3. Prepare shuffled options and map back to original indices
+            const originalOptions = currentQ.options.map((text, originalIndex) => ({ text, originalIndex }));
+            
+            // Only shuffle if it hasn't been done for this question in the current session
+            if (!currentQ.shuffledOptions) {
+                shuffleArray(originalOptions);
+                currentQ.shuffledOptions = originalOptions; 
+            }
+
+            // 4. Render options
+            currentQ.shuffledOptions.forEach((option, shuffledIndex) => {
+                const btn = document.createElement('button');
+                btn.className = 'option-button w-full text-left bg-gray-700 hover:bg-gray-600 text-gray-100 p-3 rounded-lg shadow transition duration-150 ease-in-out font-medium border border-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-info';
+                btn.setAttribute('data-shuffled-index', shuffledIndex);
+                btn.setAttribute('data-original-index', option.originalIndex);
+                btn.innerHTML = `<span class="font-bold text-primary mr-2">${getOptionLetter(shuffledIndex)}.</span> ${option.text}`;
+                btn.onclick = () => selectOption(btn);
+                optionsContainer.appendChild(btn);
+            });
+        }
+
+        // Handles option selection
+        function selectOption(selectedButton) {
+            if (isAnswered) return;
+
+            // Remove selection from all, add to selected
+            document.querySelectorAll('.option-button').forEach(btn => {
+                btn.classList.remove('bg-info', 'ring-2', 'ring-offset-2', 'ring-offset-gray-800');
+            });
+            selectedButton.classList.add('bg-info', 'ring-2', 'ring-offset-2', 'ring-offset-gray-800');
+            
+            // Store the chosen original index temporarily on the question object
+            currentQuestions[currentIndex].chosenOriginalIndex = parseInt(selectedButton.getAttribute('data-original-index'));
+        }
+
+        // Handles submission
+        function checkAnswer() {
+            if (isAnswered) return;
+
+            const currentQ = currentQuestions[currentIndex];
+            const chosenIndex = currentQ.chosenOriginalIndex;
+
+            if (chosenIndex === undefined) {
+                showModal('Lütfen bir cevap seçin.');
+                return;
+            }
+
+            isAnswered = true;
+            submitButton.classList.add('hidden');
+            nextButton.classList.remove('hidden');
+            reshuffleButton.disabled = true;
+
+            const correctAnswerIndex = currentQ.answerIndex;
+            const isCorrect = chosenIndex === correctAnswerIndex;
+            
+            // Store the result using the reliable originalIndex
+            userAnswers.push({
+                originalQIndex: currentQ.originalIndex, 
+                chosenIndex: chosenIndex,
+                correctIndex: correctAnswerIndex,
+                isCorrect: isCorrect
+            });
+
+            // 1. Highlight options
+            document.querySelectorAll('.option-button').forEach(btn => {
+                const originalIndex = parseInt(btn.getAttribute('data-original-index'));
+                
+                // Find the correct option and highlight it green
+                if (originalIndex === correctAnswerIndex) {
+                    btn.classList.remove('bg-gray-700', 'bg-info', 'ring-2', 'ring-offset-2');
+                    btn.classList.add('bg-success', 'ring-2', 'ring-green-400');
+                } 
+                
+                // If the user chose this option AND it was wrong, highlight it red
+                else if (originalIndex === chosenIndex && !isCorrect) {
+                    btn.classList.remove('bg-gray-700', 'bg-info');
+                    btn.classList.add('bg-danger', 'ring-2', 'ring-red-400');
+                }
+                
+                // Disable all buttons after submission
+                btn.disabled = true;
+            });
+
+            // 2. Show feedback and explanation
+            feedbackArea.classList.remove('hidden');
+            feedbackArea.classList.add('feedback-area-visible'); // Trigger animation
+            
+            if (isCorrect) {
+                feedbackArea.className = 'feedback-area-visible p-4 rounded-lg mt-4 bg-success text-white transition duration-300 shadow-md';
+                feedbackMessageEl.textContent = 'Doğru Cevap! 🥳';
+            } else {
+                feedbackArea.className = 'feedback-area-visible p-4 rounded-lg mt-4 bg-danger text-white transition duration-300 shadow-md';
+                feedbackMessageEl.textContent = 'Yanlış Cevap. 😔';
+            }
+            explanationContainer.innerHTML = `<strong>Gerekçe:</strong> ${currentQ.explanation}`;
+        }
+
+        // Moves to the next question
+        function nextQuestion() {
+            if (!isAnswered) return;
+            currentIndex++;
+            
+            // Clear selection properties before rendering the next question
+            if (currentQuestions[currentIndex]) {
+                 currentQuestions[currentIndex].chosenOriginalIndex = undefined;
+                 currentQuestions[currentIndex].shuffledOptions = undefined;
+            }
+            
+            renderQuestion();
+        }
+
+        // Reshuffles the options of the current question
+        function reshuffleAnswers() {
+            if (isAnswered) return;
+            // Clear the existing shuffled options to force re-shuffle
+            currentQuestions[currentIndex].shuffledOptions = undefined;
+            currentQuestions[currentIndex].chosenOriginalIndex = undefined; 
+            renderQuestion();
+        }
+
+        // Shows the final results screen
+        function showResults() {
+            quizArea.classList.add('hidden');
+            resultsArea.classList.remove('hidden');
+
+            const correctCount = userAnswers.filter(a => a.isCorrect).length;
+            const totalAnswered = ALL_QUESTIONS_MAPPED.length; // Always use the total number of unique questions
+            const scorePercentage = ((correctCount / totalAnswered) * 100).toFixed(1);
+
+            document.getElementById('correct-count').textContent = `${correctCount}`;
+            document.getElementById('score-percentage').textContent = `${scorePercentage}%`;
+            
+            const missedCount = totalAnswered - correctCount;
+
+            let message = '';
+            if (missedCount === 0) {
+                message = 'Mükemmel! Tüm soruları doğru cevapladınız. 💯';
+                retakeWrongButton.classList.add('hidden');
+            } else if (scorePercentage >= 70) {
+                message = `Tebrikler, ${totalAnswered} sorudan ${correctCount} tanesini doğru bildiniz. İyi bir performans!`;
+                retakeWrongButton.classList.remove('hidden');
+            } else {
+                message = `Tekrar çalışmanız gerekebilir. ${totalAnswered} sorudan ${correctCount} tanesini doğru bildiniz.`;
+                retakeWrongButton.classList.remove('hidden');
+            }
+
+            document.getElementById('results-message').textContent = message;
+        }
+
+        // Starts a new quiz session using only the previously missed questions
+        function retakeWrongAnswers() {
+            startQuiz(true);
+        }
+
+        // Initialization: Map questions and start the quiz
+        function initializeApp() {
+            // Map the raw questions to add a stable original index
+            ALL_QUESTIONS_MAPPED = ALL_QUESTIONS_RAW.map((q, index) => ({ 
+                ...q, 
+                originalIndex: index 
+            }));
+            startQuiz();
+        }
+
+        // Use DOMContentLoaded to ensure the script runs after all elements are available
+        document.addEventListener('DOMContentLoaded', initializeApp);
+
+    </script>
+
+</body>
+</html>
+
